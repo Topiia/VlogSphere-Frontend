@@ -121,7 +121,7 @@ const MobileMenu = ({ isOpen, onClose, navigation }) => {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-6">
                       <Link to="/login" onClick={onClose}>
                         <Button variant="outline" fullWidth>
                           Login
