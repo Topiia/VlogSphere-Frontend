@@ -40,22 +40,30 @@ const Register = () => {
 
   const password = watch('password')
 
-  const onSubmit = async (data) => {
-    setLoading(true)
-    try {
-      const result = await registerUser({
-        username: data.username,
-        email: data.email,
-        password: data.password
-      })
-      
-      if (result.success) {
-        navigate('/dashboard')
-      }
-    } finally {
-      setLoading(false)
+const onSubmit = async (data) => {
+  setLoading(true);
+  try {
+    const result = await registerUser({
+      username: data.username,
+      email: data.email,
+      password: data.password,
+    });
+
+    if (result?.success) {
+      toast.success("Account created successfully!");
+      navigate("/login");
+    } else {
+      toast.error(result?.message || "Registration failed. Try again.");
     }
+  } catch (error) {
+    toast.error(
+      error?.response?.data?.message || "Something went wrong. Try again!"
+    );
+  } finally {
+    setLoading(false);
   }
+};
+
 
   const containerVariants = {
     hidden: { opacity: 0, scale: 0.9 },
