@@ -205,6 +205,14 @@ const VlogDetail = () => {
                   </Button>
                   
                   {showOptionsMenu && (
+                  <>
+                      {/* Backdrop */}
+                      <div 
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+                        onClick={() => setShowOptionsMenu(false)}
+                      />
+                      
+                      {/* Menu */}
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: -10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -236,6 +244,7 @@ const VlogDetail = () => {
                         <span className="text-red-400 font-medium">Delete Vlog</span>
                       </button>
                     </motion.div>
+                  </>
                   )}
                 </div>
               )}
