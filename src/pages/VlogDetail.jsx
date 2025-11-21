@@ -209,7 +209,7 @@ const VlogDetail = () => {
                       initial={{ opacity: 0, scale: 0.95, y: -10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute right-0 mt-2 w-56 glass-card rounded-2xl shadow-2xl z-50 overflow-hidden border border-[var(--glass-border)]"
+                      className="absolute left-0 mt-2 w-56 glass-card rounded-2xl shadow-2xl z-50 overflow-hidden border border-[var(--glass-border)]"
                     >
                       <button
                         onClick={() => {
