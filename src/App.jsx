@@ -11,6 +11,8 @@ import LoadingSpinner from './components/UI/LoadingSpinner'
 const Home = lazy(() => import('./pages/Home'))
 const Login = lazy(() => import('./pages/Auth/Login'))
 const Register = lazy(() => import('./pages/Auth/Register'))
+const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/Auth/ResetPassword'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Profile = lazy(() => import('./pages/Profile'))
 const CreateVlog = lazy(() => import('./pages/CreateVlog'))
