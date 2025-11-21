@@ -87,7 +87,7 @@ const onSubmit = async (data) => {
   ]
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden pb-20">
       {/* Background Elements */}
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl"></div>
@@ -114,8 +114,8 @@ const onSubmit = async (data) => {
         </div>
 
         {/* Registration Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="glass-card p-8 rounded-2xl space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-[480px]:space-y-4">
+          <div className="glass-card p-8 max-[480px]:p-5 rounded-2xl space-y-5 max-[480px]:space-y-4">
             {/* Username Field */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-[var(--theme-text)] mb-2">
@@ -152,7 +152,7 @@ const onSubmit = async (data) => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-sm text-red-400"
+                   className="mt-2 text-sm text-red-400 break-words"
                 >
                   {errors.username.message}
                 </motion.p>
@@ -187,7 +187,7 @@ const onSubmit = async (data) => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-sm text-red-400"
+                  className="mt-2 text-sm text-red-400 break-words"
                 >
                   {errors.email.message}
                 </motion.p>
@@ -259,7 +259,7 @@ const onSubmit = async (data) => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-sm text-red-400"
+                  className="mt-2 text-sm text-red-400 break-words"
                 >
                   {errors.password.message}
                 </motion.p>
@@ -303,7 +303,7 @@ const onSubmit = async (data) => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-sm text-red-400"
+                  className="mt-2 text-sm text-red-400 break-words"
                 >
                   {errors.confirmPassword.message}
                 </motion.p>
@@ -336,7 +336,7 @@ const onSubmit = async (data) => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-sm text-red-400"
+                  className="mt-2 text-sm text-red-400 break-words"
                 >
                   {errors.agreeToTerms.message}
                 </motion.p>
