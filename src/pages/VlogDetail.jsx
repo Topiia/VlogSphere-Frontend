@@ -257,19 +257,21 @@ const VlogDetail = () => {
                       />
                       
                       {/* Menu */}
-                      <motion.div
-                        ref={optionsMenuRef}
-                        initial={{ opacity: 0, scale: 0.95, y: -6 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -6 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                        className={
-                          // responsive positioning: full-width on small screens, anchored on md+
-                          'absolute z-50 mt-2 glass-card rounded-2xl shadow-2xl overflow-hidden border border-[var(--glass-border)] ' +
-                          'left-0 right-0 md:right-0 md:left-auto md:w-56'
-                        }
-                        style={{ top: 'calc(100% + 8px)' }}
-                      >
+                        <motion.div
+                          ref={optionsMenuRef}
+                          initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: -6 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                          className="
+                          absolute z-50 mt-2 glass-card rounded-2xl shadow-2xl 
+                          overflow-hidden border border-[var(--glass-border)]
+                          right-3 left-auto max-w-[90vw] 
+                          md:right-0 md:left-auto md:w-56
+                          "
+                          style={{ top: 'calc(100% + 8px)' }}
+                        >
+
                         <button
                           onClick={() => { handleEdit(); setShowOptionsMenu(false) }}
                           className="w-full px-5 py-3.5 text-left flex items-center space-x-3 hover:bg-white/10 transition-all duration-200 group"
