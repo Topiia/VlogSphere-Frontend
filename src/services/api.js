@@ -1,25 +1,22 @@
+// src/services/api.js
 import axios from "axios";
 
-// Create axios instance
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  timeout: 15000,
+  headers: { "Content-Type": "application/json" },
 });
 
-// Auth API methods
+// ----------------------------------------
+// AUTH / APP API EXPORTS
+// ----------------------------------------
 export const authAPI = {
   setAuthHeader: (token) => {
-    if (token) {
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    } else {
-      delete api.defaults.headers.common["Authorization"];
-    }
+    if (token) api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    else delete api.defaults.headers.common["Authorization"];
   },
 
-  login: (credentials) => api.post("/auth/login", credentials),
+  login: (data) => api.post("/auth/login", data),
   register: (data) => api.post("/auth/register", data),
   logout: () => api.post("/auth/logout"),
   getMe: () => api.get("/auth/me"),
@@ -32,132 +29,86 @@ export const authAPI = {
   verifyEmail: (token) => api.get(`/auth/verify/${token}`),
 };
 
-// ------- Vlog API -------
 export const vlogAPI = {
   getVlogs: (params = {}) => api.get("/vlogs", { params }),
   getVlog: (id) => api.get(`/vlogs/${id}`),
-  createVlog: (data) => api.post("/vlogs", data),
-  updateVlog: (id, data) => api.put(`/vlogs/${id}`, data),
+  createVlog: (vlogData) => api.post("/vlogs", vlogData),
+  updateVlog: (id, vlogData) => api.put(`/vlogs/${id}`, vlogData),
   deleteVlog: (id) => api.delete(`/vlogs/${id}`),
-
   likeVlog: (id) => api.put(`/vlogs/${id}/like`),
   dislikeVlog: (id) => api.put(`/vlogs/${id}/dislike`),
+  addComment: (id, comment) => api.post(`/vlogs/${id}/comments`, { text: comment }),
+  deleteComment: (id, commentId) => api.delete(`/vlogs/${id}/comments/${commentId}`),
   shareVlog: (id) => api.put(`/vlogs/${id}/share`),
   recordView: (id) => api.put(`/vlogs/${id}/view`),
-
-  addComment: (id, text) => api.post(`/vlogs/${id}/comments`, { text }),
-  deleteComment: (id, commentId) =>
-    api.delete(`/vlogs/${id}/comments/${commentId}`),
-
   getTrending: (params = {}) => api.get("/vlogs/trending", { params }),
-  getUserVlogs: (userId, params = {}) =>
-    api.get(`/vlogs/user/${userId}`, { params }),
-  searchVlogs: (query, params = {}) =>
-    api.get(`/vlogs/search`, { params: { ...params, q: query } }),
+  getUserVlogs: (userId, params = {}) => api.get(`/vlogs/user/${userId}`, { params }),
+  searchVlogs: (query, params = {}) => api.get("/vlogs/search", { params: { ...params, q: query } }),
 };
 
-// ------- Upload API -------
 export const uploadAPI = {
   uploadSingle: (file) => {
-    const formData = new FormData();
-    formData.append("image", file);
-    return api.post("/upload/single", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const fd = new FormData();
+    fd.append("image", file);
+    return api.post("/upload/single", fd, { headers: { "Content-Type": "multipart/form-data" } });
   },
-
   uploadMultiple: (files) => {
-    const formData = new FormData();
-    files.forEach((f) => formData.append("images", f));
-    return api.post("/upload/multiple", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const fd = new FormData();
+    files.forEach((f) => fd.append("images", f));
+    return api.post("/upload/multiple", fd, { headers: { "Content-Type": "multipart/form-data" } });
   },
-
   deleteImage: (publicId) => api.delete(`/upload/${publicId}`),
 };
 
-// ------- User API -------
 export const userAPI = {
   getUser: (username) => api.get(`/users/${username}`),
   getUserByUsername: (username) => api.get(`/users/profile/${username}`),
-
   followUser: (userId) => api.post(`/users/${userId}/follow`),
   unfollowUser: (userId) => api.delete(`/users/${userId}/follow`),
-
-  getFollowers: (userId, params = {}) =>
-    api.get(`/users/${userId}/followers`, { params }),
-  getFollowing: (userId, params = {}) =>
-    api.get(`/users/${userId}/following`, { params }),
-
-  searchUsers: (q, params = {}) =>
-    api.get(`/users/search`, { params: { ...params, q } }),
-
+  getFollowers: (userId, params = {}) => api.get(`/users/${userId}/followers`, { params }),
+  getFollowing: (userId, params = {}) => api.get(`/users/${userId}/following`, { params }),
+  searchUsers: (query, params = {}) => api.get("/users/search", { params: { ...params, q: query } }),
   getLikedVlogs: (params = {}) => api.get("/users/likes", { params }),
   getBookmarks: (params = {}) => api.get("/users/bookmarks", { params }),
-  addBookmark: (id) => api.post(`/users/bookmarks/${id}`),
-  removeBookmark: (id) => api.delete(`/users/bookmarks/${id}`),
+  addBookmark: (vlogId) => api.post(`/users/bookmarks/${vlogId}`),
+  removeBookmark: (vlogId) => api.delete(`/users/bookmarks/${vlogId}`),
 };
 
-// ---------------------
-// REQUEST INTERCEPTOR
-// ---------------------
+// ----------------------------------------
+// Request interceptor (minimal-safe)
+// ----------------------------------------
 api.interceptors.request.use(
   (config) => {
-    // Add timestamp to prevent caching
-    if (config.method === "get") {
+    // NOTE: do not mutate POST calls or cause duplicates.
+    // Add a small timestamp only for GETs if needed by cache-busting,
+    // but avoid automatic side-effects for non-GET methods.
+    if (config && config.method === "get") {
       config.params = { ...config.params, _t: Date.now() };
     }
-
-    config.retryCount = config.retryCount || 0;
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// ---------------------
-// RESPONSE INTERCEPTOR (FIXED)
-// ---------------------
+// ----------------------------------------
+// Response interceptor (sane error propagation)
+// ----------------------------------------
 api.interceptors.response.use(
-  (res) => res,
-
-  async (error) => {
-    const original = error.config;
-
-    // No response (network error)
+  (response) => response,
+  (error) => {
+    // If no response then it's network error
     if (!error.response) {
-      const maxRetries = 2;
-      if (original.retryCount < maxRetries) {
-        original.retryCount++;
-        await new Promise((r) => setTimeout(r, 1000 * original.retryCount));
-        return api(original);
-      }
-
       error.message = "Network error. Check your connection.";
       return Promise.reject(error);
     }
 
     const { status, data } = error.response;
+    const serverMessage = data?.error?.message || data?.message || null;
 
-    // -------- 401 FIXED --------
-    if (status === 401) {
-      error.message =
-        data?.error?.message || data?.message || "Invalid credentials";
+    // Do NOT automatically redirect the whole app here.
+    // Let calling code (AuthContext or components) handle 401s gracefully.
+    error.message = serverMessage || `Request failed with status ${status}`;
 
-      // Only clear tokens, do NOT reload
-      localStorage.removeItem("token");
-      localStorage.removeItem("refreshToken");
-      sessionStorage.removeItem("token");
-      sessionStorage.removeItem("refreshToken");
-
-      return Promise.reject(error);
-    }
-
-    // -------- Other status messages --------
-    const message =
-      data?.error?.message || data?.message || "Unexpected error occurred";
-
-    error.message = message;
     return Promise.reject(error);
   }
 );
