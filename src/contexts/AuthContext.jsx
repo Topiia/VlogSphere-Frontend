@@ -1,195 +1,196 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import { authAPI } from '../services/api'
-import toast from 'react-hot-toast'
+import { createContext, useContext, useState, useEffect } from "react";
+import { authAPI } from "../services/api";
+import toast from "react-hot-toast";
 
-const AuthContext = createContext()
+const AuthContext = createContext();
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
+};
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [token, setToken] = useState(localStorage.getItem('token'))
-  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'))
-  const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [refreshToken, setRefreshToken] = useState(localStorage.getItem("refreshToken"));
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check if user is authenticated on mount
+  // Load user on mount
   useEffect(() => {
-    const initAuth = async () => {
-      if (token) {
-        try {
-          // Set auth header
-          authAPI.setAuthHeader(token)
-          
-          // Get user data
-          const response = await authAPI.getMe()
-          setUser(response.data.user)
-          setIsAuthenticated(true)
-        } catch (error) {
-          console.error('Auth initialization failed:', error)
-          logout()
-        }
+    const init = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
       }
-      setLoading(false)
-    }
 
-    initAuth()
-  }, [token])
+      try {
+        authAPI.setAuthHeader(token);
+        const res = await authAPI.getMe();
+        setUser(res.data.user);
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error("Auth init failed:", err);
+        logout();
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Auto refresh token before expiration
+    init();
+  }, [token]);
+
+  // Token Auto-Refresh
   useEffect(() => {
-    if (refreshToken) {
-      const refreshInterval = setInterval(async () => {
-        try {
-          const response = await authAPI.refreshToken(refreshToken)
-          const { accessToken, refreshToken: newRefreshToken } = response.data
-          
-          setToken(accessToken)
-          setRefreshToken(newRefreshToken)
-          localStorage.setItem('token', accessToken)
-          localStorage.setItem('refreshToken', newRefreshToken)
-          authAPI.setAuthHeader(accessToken)
-        } catch (error) {
-          console.error('Token refresh failed:', error)
-          logout()
-        }
-      }, 25 * 60 * 1000) // Refresh every 25 minutes
+    if (!refreshToken) return;
 
-      return () => clearInterval(refreshInterval)
-    }
-  }, [refreshToken])
+    const interval = setInterval(async () => {
+      try {
+        const res = await authAPI.refreshToken(refreshToken);
+        const { accessToken, refreshToken: newRT } = res.data;
 
+        setToken(accessToken);
+        setRefreshToken(newRT);
+
+        localStorage.setItem("token", accessToken);
+        localStorage.setItem("refreshToken", newRT);
+
+        authAPI.setAuthHeader(accessToken);
+      } catch (err) {
+        console.error("Token refresh failed");
+        logout();
+      }
+    }, 25 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [refreshToken]);
+
+  // LOGIN — FIXED (NO BLANK WHITE PAGE)
   const login = async (email, password, rememberMe = false) => {
     try {
-      const response = await authAPI.login({ email, password, rememberMe })
-      const { token: newToken, refreshToken: newRefreshToken, user: userData } = response.data
+      const res = await authAPI.login({ email, password, rememberMe });
 
-      setToken(newToken)
-      setRefreshToken(newRefreshToken)
-      setUser(userData)
-      setIsAuthenticated(true)
+      const { token: newToken, refreshToken: newRefreshToken, user: userData } = res.data;
 
-      // Store tokens
+      setUser(userData);
+      setToken(newToken);
+      setRefreshToken(newRefreshToken);
+      setIsAuthenticated(true);
+
       if (rememberMe) {
-        localStorage.setItem('token', newToken)
-        localStorage.setItem('refreshToken', newRefreshToken)
+        localStorage.setItem("token", newToken);
+        localStorage.setItem("refreshToken", newRefreshToken);
       } else {
-        sessionStorage.setItem('token', newToken)
-        sessionStorage.setItem('refreshToken', newRefreshToken)
+        sessionStorage.setItem("token", newToken);
+        sessionStorage.setItem("refreshToken", newRefreshToken);
       }
 
-      // Set auth header
-      authAPI.setAuthHeader(newToken)
+      authAPI.setAuthHeader(newToken);
+      toast.success("Welcome back!");
 
-      toast.success('Welcome back!')
-      return { success: true }
-    } catch (error) {
-      const message = error.response?.data?.error?.message || 'Login failed'
-      toast.error(message)
-      return { success: false, error: message }
+      return { success: true };
+    } catch (err) {
+      const message =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        "Incorrect email or password";
+
+      toast.error(message);
+      return { success: false, error: message };
     }
-  }
+  };
 
+  // REGISTER — FIXED (NO TOKEN EXPECTED)
   const register = async (userData) => {
     try {
-      const response = await authAPI.register(userData)
-      const { token: newToken, refreshToken: newRefreshToken, user: userInfo } = response.data
+      const res = await authAPI.register(userData);
 
-      setToken(newToken)
-      setRefreshToken(newRefreshToken)
-      setUser(userInfo)
-      setIsAuthenticated(true)
-
-      // Store tokens
-      localStorage.setItem('token', newToken)
-      localStorage.setItem('refreshToken', newRefreshToken)
-
-      // Set auth header
-      authAPI.setAuthHeader(newToken)
-
-      toast.success('Account created successfully!')
-      return { success: true }
-    } catch (error) {
-      const message = error.response?.data?.error?.message || 'Registration failed'
-      toast.error(message)
-      return { success: false, error: message }
-    }
-  }
-
-  const logout = async () => {
-    try {
-      if (token) {
-        await authAPI.logout()
+      if (res.data.success) {
+        toast.success(res.data.message || "Account created!");
+        return { success: true };
       }
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      // Clear all data
-      setUser(null)
-      setToken(null)
-      setRefreshToken(null)
-      setIsAuthenticated(false)
-      
-      // Clear storage
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      sessionStorage.removeItem('token')
-      sessionStorage.removeItem('refreshToken')
-      
-      // Clear auth header
-      authAPI.setAuthHeader(null)
-      
-      toast.success('Logged out successfully')
-    }
-  }
 
-  const updateUser = async (userData) => {
-    try {
-      const response = await authAPI.updateDetails(userData)
-      setUser(response.data.user)
-      toast.success('Profile updated successfully')
-      return { success: true }
-    } catch (error) {
-      const message = error.response?.data?.error?.message || 'Update failed'
-      toast.error(message)
-      return { success: false, error: message }
+      return { success: false, error: res.data.message };
+    } catch (err) {
+      const message =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        "Registration failed";
+
+      toast.error(message);
+      return { success: false, error: message };
     }
-  }
+  };
+
+  const logout = () => {
+    try {
+      authAPI.logout().catch(() => {});
+    } finally {
+      setUser(null);
+      setToken(null);
+      setRefreshToken(null);
+      setIsAuthenticated(false);
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("refreshToken");
+
+      authAPI.setAuthHeader(null);
+      toast.success("Logged out");
+    }
+  };
+
+  const updateUser = async (data) => {
+    try {
+      const res = await authAPI.updateDetails(data);
+      setUser(res.data.user);
+      toast.success("Profile updated");
+      return { success: true };
+    } catch (err) {
+      const msg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        "Update failed";
+
+      toast.error(msg);
+      return { success: false, error: msg };
+    }
+  };
 
   const updatePassword = async (currentPassword, newPassword) => {
     try {
-      await authAPI.updatePassword({ currentPassword, newPassword })
-      toast.success('Password updated successfully')
-      return { success: true }
-    } catch (error) {
-      const message = error.response?.data?.error?.message || 'Password update failed'
-      toast.error(message)
-      return { success: false, error: message }
-    }
-  }
+      await authAPI.updatePassword({ currentPassword, newPassword });
+      toast.success("Password updated");
+      return { success: true };
+    } catch (err) {
+      const msg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        "Password update failed";
 
-  const value = {
-    user,
-    token,
-    refreshToken,
-    loading,
-    isAuthenticated,
-    login,
-    register,
-    logout,
-    updateUser,
-    updatePassword
-  }
+      toast.error(msg);
+      return { success: false, error: msg };
+    }
+  };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        refreshToken,
+        loading,
+        isAuthenticated,
+        login,
+        register,
+        logout,
+        updateUser,
+        updatePassword,
+      }}
+    >
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
