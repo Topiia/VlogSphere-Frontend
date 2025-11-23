@@ -25,7 +25,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false)
 
   const {
-    register,
+    register: formRegister,
     handleSubmit,
     watch,
     formState: { errors }
@@ -126,7 +126,7 @@ const onSubmit = async (data) => {
                   <UserIcon className="h-5 w-5 text-[var(--theme-text-secondary)]" />
                 </div>
                 <input
-                  {...register('username', {
+                  {...formRegister('username', {
                     required: 'Username is required',
                     minLength: {
                       value: 3,
@@ -169,7 +169,7 @@ const onSubmit = async (data) => {
                   <EnvelopeIcon className="h-5 w-5 text-[var(--theme-text-secondary)]" />
                 </div>
                 <input
-                  {...register('email', {
+                  {...formRegister('email', {
                     required: 'Email is required',
                     pattern: {
                       value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
@@ -276,7 +276,7 @@ const onSubmit = async (data) => {
                   <LockClosedIcon className="h-5 w-5 text-[var(--theme-text-secondary)]" />
                 </div>
                 <input
-                  {...register('confirmPassword', {
+                  {...formRegister('confirmPassword', {
                     required: 'Please confirm your password',
                     validate: (value) =>
                       value === password || 'Passwords do not match'
@@ -314,7 +314,7 @@ const onSubmit = async (data) => {
             <div>
               <label className="flex items-start">
                 <input
-                  {...register('agreeToTerms', {
+                  {...formRegister('agreeToTerms', {
                     required: 'You must agree to the terms and conditions'
                   })}
                   type="checkbox"
