@@ -5,7 +5,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../contexts/AuthContext";
-import { isValidPassword } from "../../utils/helpers";
 import Button from "../../components/UI/Button";
 import Logo from "../../components/UI/Logo";
 import {
@@ -16,15 +15,16 @@ import {
   LockClosedIcon,
   CheckIcon,
 } from "@heroicons/react/24/outline";
+import { isValidPassword } from "../../utils/helpers";
 
 const Register = () => {
   const navigate = useNavigate();
   const { register: registerUser } = useAuth();
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // avoid name clash: rename useForm's register to formRegister
   const {
     register: formRegister,
     handleSubmit,
@@ -43,42 +43,43 @@ const Register = () => {
   const password = watch("password");
 
   const onSubmit = async (data) => {
-    if (loading) return; // prevent double submission
+    // prevent double calls
+    if (loading) return;
     setLoading(true);
 
     try {
       const payload = {
         username: data.username.trim(),
-        email: data.email.trim(),
+        email: data.email.trim().toLowerCase(),
         password: data.password,
       };
 
       const result = await registerUser(payload);
 
+      // registerUser returns { success, error }
       if (result?.success) {
         toast.success("Account created successfully!");
         navigate("/login");
       } else {
-        // result.error is expected to be a string
-        toast.error(result?.error || "Registration failed");
+        // server message fallback
+        const msg = result?.error || "Registration failed. Try again.";
+        toast.error(msg);
       }
     } catch (err) {
-      toast.error(err?.message || "Something went wrong. Try again!");
+      // should not reach here often because register handles errors,
+      // but keep safe fallback
+      const msg = err?.response?.data?.message || "Something went wrong. Try again!";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0, scale: 0.9 },
-    visible: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 100, damping: 15 } },
-  };
-
   const passwordRequirements = [
-    { text: "At least 6 characters", test: (pwd) => pwd.length >= 6 },
-    { text: "Contains uppercase letter", test: (pwd) => /[A-Z]/.test(pwd) },
-    { text: "Contains lowercase letter", test: (pwd) => /[a-z]/.test(pwd) },
-    { text: "Contains a number", test: (pwd) => /\d/.test(pwd) },
+    { text: "At least 6 characters", test: (pwd) => (pwd || "").length >= 6 },
+    { text: "Contains uppercase letter", test: (pwd) => /[A-Z]/.test(pwd || "") },
+    { text: "Contains lowercase letter", test: (pwd) => /[a-z]/.test(pwd || "") },
+    { text: "Contains a number", test: (pwd) => /\d/.test(pwd || "") },
   ];
 
   return (
@@ -88,9 +89,11 @@ const Register = () => {
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-full blur-3xl"></div>
       </div>
 
-      <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-lg w-full space-y-8 relative z-10">
+      <motion.div className="max-w-lg w-full space-y-8 relative z-10">
         <div className="text-center">
-          <div className="flex justify-center mb-6"><Logo size="lg" /></div>
+          <div className="flex justify-center mb-6">
+            <Logo size="lg" />
+          </div>
           <h2 className="text-3xl font-bold gradient-text mb-2">Create Your Account</h2>
           <p className="text-[var(--theme-text-secondary)]">Join the future of visual storytelling</p>
         </div>
@@ -99,90 +102,154 @@ const Register = () => {
           <div className="glass-card p-8 max-[480px]:p-5 rounded-2xl space-y-5 max-[480px]:space-y-4">
             {/* Username */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium mb-2">Username</label>
+              <label className="block text-sm font-medium text-[var(--theme-text)] mb-2">Username</label>
               <div className="relative">
-                <UserIcon className="absolute right-3 top-3 h-5 w-5 text-gray-400" />
-                <input {...formRegister("username", {
-                  required: "Username is required",
-                  minLength: { value: 3, message: "Minimum 3 chars" },
-                  maxLength: { value: 30, message: "Maximum 30 chars" },
-                  pattern: { value: /^[a-zA-Z0-9_]+$/, message: "Only letters/numbers/_" }
-                })} id="username" className="glass-input pl-4 pr-10" disabled={loading} />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <UserIcon className="h-5 w-5 text-[var(--theme-text-secondary)]" />
+                </div>
+                <input
+                  {...formRegister("username", {
+                    required: "Username is required",
+                    minLength: { value: 3, message: "Username must be at least 3 characters" },
+                    maxLength: { value: 30, message: "Username cannot exceed 30 characters" },
+                    pattern: { value: /^[a-zA-Z0-9_]+$/, message: "Only letters, numbers, underscores" },
+                  })}
+                  type="text"
+                  className="glass-input pl-11"
+                  placeholder="Choose a username"
+                  disabled={loading}
+                />
               </div>
-              {errors.username && <p className="text-red-400 text-sm mt-1">{errors.username.message}</p>}
+              {errors.username && <p className="mt-2 text-sm text-red-400">{errors.username.message}</p>}
             </div>
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-2">Email Address</label>
+              <label className="block text-sm font-medium text-[var(--theme-text)] mb-2">Email Address</label>
               <div className="relative">
-                <EnvelopeIcon className="absolute right-3 top-3 h-5 w-5 text-gray-400" />
-                <input {...formRegister("email", {
-                  required: "Email is required",
-                  pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Invalid email" }
-                })} type="email" id="email" className="glass-input pl-4 pr-10" disabled={loading} />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <EnvelopeIcon className="h-5 w-5 text-[var(--theme-text-secondary)]" />
+                </div>
+                <input
+                  {...formRegister("email", {
+                    required: "Email is required",
+                    pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Invalid email address" },
+                  })}
+                  type="email"
+                  className="glass-input pl-11"
+                  placeholder="Enter your email"
+                  disabled={loading}
+                />
               </div>
-              {errors.email && <p className="text-red-400 text-sm mt-1">{errors.email.message}</p>}
+              {errors.email && <p className="mt-2 text-sm text-red-400">{errors.email.message}</p>}
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium mb-2">Password</label>
+              <label className="block text-sm font-medium text-[var(--theme-text)] mb-2">Password</label>
               <div className="relative">
-                <LockClosedIcon className="absolute right-3 top-3 h-5 w-5 text-gray-400" />
-                <input {...formRegister("password", {
-                  required: "Password is required",
-                  validate: v => isValidPassword(v) || "Must be 6+ chars, include upper/lower/number"
-                })} type={showPassword ? "text" : "password"} id="password" className="glass-input pl-4 pr-10" disabled={loading} />
-                <button type="button" className="absolute right-10 top-3" onClick={() => setShowPassword(s => !s)}>
-                  {showPassword ? <EyeSlashIcon className="h-5 w-5 text-gray-400"/> : <EyeIcon className="h-5 w-5 text-gray-400"/>}
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <LockClosedIcon className="h-5 w-5 text-[var(--theme-text-secondary)]" />
+                </div>
+                <input
+                  {...formRegister("password", {
+                    required: "Password is required",
+                    validate: (value) =>
+                      isValidPassword(value) || "Password must be 6+ chars and include upper, lower and number",
+                  })}
+                  type={showPassword ? "text" : "password"}
+                  className="glass-input pl-11 pr-11"
+                  placeholder="Create a strong password"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute inset-y-0 right-0 pr-10 flex items-center text-[var(--theme-text-secondary)]"
+                >
+                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
-
-              {password && <div className="mt-3 space-y-1">
-                {passwordRequirements.map((req, i) => (
-                  <div key={i} className={`flex items-center gap-2 text-xs ${req.test(password) ? "text-green-400" : "text-gray-400"}`}>
-                    <CheckIcon className={`w-3 h-3 ${req.test(password) ? "opacity-100" : "opacity-0"}`} />
-                    {req.text}
-                  </div>
-                ))}
-              </div>}
-              {errors.password && <p className="text-red-400 text-sm mt-1">{errors.password.message}</p>}
+              {watch("password") && (
+                <div className="mt-3 space-y-1 text-xs">
+                  {passwordRequirements.map((req, idx) => (
+                    <div key={idx} className={`flex items-center space-x-2 ${req.test(password) ? "text-green-400" : "text-[var(--theme-text-secondary)]"}`}>
+                      <CheckIcon className={`w-3 h-3 ${req.test(password) ? "opacity-100" : "opacity-0"}`} />
+                      <span>{req.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {errors.password && <p className="mt-2 text-sm text-red-400">{errors.password.message}</p>}
             </div>
 
             {/* Confirm Password */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2">Confirm Password</label>
+              <label className="block text-sm font-medium text-[var(--theme-text)] mb-2">Confirm Password</label>
               <div className="relative">
-                <LockClosedIcon className="absolute right-3 top-3 h-5 w-5 text-gray-400" />
-                <input {...formRegister("confirmPassword", {
-                  required: "Please confirm password",
-                  validate: value => value === password || "Passwords do not match"
-                })} type={showConfirmPassword ? "text" : "password"} id="confirmPassword" className="glass-input pl-4 pr-10" disabled={loading}/>
-                <button type="button" className="absolute right-10 top-3" onClick={() => setShowConfirmPassword(s => !s)}>
-                  {showConfirmPassword ? <EyeSlashIcon className="h-5 w-5 text-gray-400"/> : <EyeIcon className="h-5 w-5 text-gray-400"/>}
+                <input
+                  {...formRegister("confirmPassword", {
+                    required: "Please confirm your password",
+                    validate: (value) => value === password || "Passwords do not match",
+                  })}
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="glass-input pl-11 pr-11"
+                  placeholder="Confirm your password"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((s) => !s)}
+                  className="absolute inset-y-0 right-0 pr-10 flex items-center text-[var(--theme-text-secondary)]"
+                >
+                  {showConfirmPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
-              {errors.confirmPassword && <p className="text-red-400 text-sm mt-1">{errors.confirmPassword.message}</p>}
+              {errors.confirmPassword && <p className="mt-2 text-sm text-red-400">{errors.confirmPassword.message}</p>}
             </div>
 
             {/* Terms */}
             <div>
-              <label className="flex items-start gap-2">
-                <input {...formRegister("agreeToTerms", { required: "You must accept the terms" })} type="checkbox" className="mt-1 w-4 h-4" disabled={loading} />
-                <span className="text-sm text-gray-300">I agree to the <Link to="/terms" className="text-indigo-400 hover:underline">Terms</Link> and <Link to="/privacy" className="text-indigo-400 hover:underline">Privacy Policy</Link></span>
+              <label className="flex items-start">
+                <input
+                  {...formRegister("agreeToTerms", { required: "You must agree to terms" })}
+                  type="checkbox"
+                  className="mt-1 w-4 h-4"
+                  disabled={loading}
+                />
+                <span className="ml-2 text-sm text-[var(--theme-text-secondary)]">
+                  I agree to the <Link to="/terms" className="text-[var(--theme-accent)]">Terms</Link> and <Link to="/privacy" className="text-[var(--theme-accent)]">Privacy</Link>
+                </span>
               </label>
-              {errors.agreeToTerms && <p className="text-red-400 text-sm mt-1">{errors.agreeToTerms.message}</p>}
+              {errors.agreeToTerms && <p className="mt-2 text-sm text-red-400">{errors.agreeToTerms.message}</p>}
             </div>
 
-            <Button type="submit" fullWidth size="lg" variant="primary" loading={loading}>
-              {loading ? "Creating Account…" : "Create Account"}
-            </Button>
+            <div>
+              <Button type="submit" fullWidth size="lg" variant="primary" loading={loading} className="mt-4" disabled={loading}>
+                {loading ? "Creating Account..." : "Create Account"}
+              </Button>
+            </div>
           </div>
         </form>
 
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-white/20"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 glass text-[var(--theme-text-secondary)]">Or sign up with</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Button variant="secondary" disabled={loading} className="flex items-center justify-center space-x-2"><span>Google</span></Button>
+          <Button variant="secondary" disabled={loading} className="flex items-center justify-center space-x-2"><span>Twitter</span></Button>
+        </div>
+
         <div className="text-center mt-8">
-          <p className="text-gray-400">Already have an account? <Link to="/login" className="text-indigo-400 hover:text-indigo-300">Sign in</Link></p>
+          <p className="text-[var(--theme-text-secondary)]">
+            Already have an account? <Link to="/login" className="text-[var(--theme-accent)]">Sign in</Link>
+          </p>
         </div>
       </motion.div>
     </div>
