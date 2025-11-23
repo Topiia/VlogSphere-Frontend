@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from "react";
+// src/contexts/AuthContext.jsx
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { authAPI } from "../services/api";
 import toast from "react-hot-toast";
 
@@ -12,132 +13,145 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("token"));
-  const [refreshToken, setRefreshToken] = useState(localStorage.getItem("refreshToken"));
+  const [token, setToken] = useState(() => localStorage.getItem("token") || sessionStorage.getItem("token") || null);
+  const [refreshToken, setRefreshToken] = useState(() => localStorage.getItem("refreshToken") || sessionStorage.getItem("refreshToken") || null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Load user on mount
+  // Initialize auth on mount if token exists
   useEffect(() => {
     const init = async () => {
       if (!token) {
         setLoading(false);
         return;
       }
-
       try {
         authAPI.setAuthHeader(token);
         const res = await authAPI.getMe();
         setUser(res.data.user);
         setIsAuthenticated(true);
       } catch (err) {
+        // invalid token -> clear auth
         console.error("Auth init failed:", err);
-        logout();
+        clearAuth();
       } finally {
         setLoading(false);
       }
     };
 
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // Token Auto-Refresh
+  // Auto refresh using refreshToken every ~25 minutes
   useEffect(() => {
     if (!refreshToken) return;
-
-    const interval = setInterval(async () => {
+    const id = setInterval(async () => {
       try {
         const res = await authAPI.refreshToken(refreshToken);
-        const { accessToken, refreshToken: newRT } = res.data;
+        // Expecting backend returns { accessToken, refreshToken } or similar
+        const newAccess = res.data.accessToken || res.data.token || res.data.data?.token;
+        const newRefresh = res.data.refreshToken || res.data.refresh_token || res.data.data?.refreshToken;
 
-        setToken(accessToken);
-        setRefreshToken(newRT);
-
-        localStorage.setItem("token", accessToken);
-        localStorage.setItem("refreshToken", newRT);
-
-        authAPI.setAuthHeader(accessToken);
+        if (newAccess) {
+          setToken(newAccess);
+          authAPI.setAuthHeader(newAccess);
+          // prefer localStorage if token was stored there earlier
+          if (localStorage.getItem("refreshToken") || localStorage.getItem("token")) {
+            localStorage.setItem("token", newAccess);
+            if (newRefresh) localStorage.setItem("refreshToken", newRefresh);
+          } else {
+            sessionStorage.setItem("token", newAccess);
+            if (newRefresh) sessionStorage.setItem("refreshToken", newRefresh);
+          }
+          if (newRefresh) setRefreshToken(newRefresh);
+        } else {
+          throw new Error("Invalid refresh response");
+        }
       } catch (err) {
-        console.error("Token refresh failed");
-        logout();
+        console.error("Token refresh failed:", err);
+        clearAuth();
       }
     }, 25 * 60 * 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(id);
   }, [refreshToken]);
 
-  // LOGIN — FIXED (NO BLANK WHITE PAGE)
+  function clearAuth() {
+    setUser(null);
+    setToken(null);
+    setRefreshToken(null);
+    setIsAuthenticated(false);
+    authAPI.setAuthHeader(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("refreshToken");
+  }
+
+  // LOGIN
   const login = async (email, password, rememberMe = false) => {
     try {
-      const res = await authAPI.login({ email, password, rememberMe });
+      const res = await authAPI.login({ email, password });
+      const newToken = res.data.token || res.data.accessToken || res.data.data?.token;
+      const newRefresh = res.data.refreshToken || res.data.refresh_token || res.data.data?.refreshToken;
+      const userData = res.data.user || res.data.data?.user;
 
-      const { token: newToken, refreshToken: newRefreshToken, user: userData } = res.data;
+      if (!newToken) throw new Error("Invalid login response");
 
-      setUser(userData);
       setToken(newToken);
-      setRefreshToken(newRefreshToken);
+      setRefreshToken(newRefresh || null);
+      setUser(userData || null);
       setIsAuthenticated(true);
+      authAPI.setAuthHeader(newToken);
 
       if (rememberMe) {
         localStorage.setItem("token", newToken);
-        localStorage.setItem("refreshToken", newRefreshToken);
+        if (newRefresh) localStorage.setItem("refreshToken", newRefresh);
       } else {
         sessionStorage.setItem("token", newToken);
-        sessionStorage.setItem("refreshToken", newRefreshToken);
+        if (newRefresh) sessionStorage.setItem("refreshToken", newRefresh);
       }
 
-      authAPI.setAuthHeader(newToken);
       toast.success("Welcome back!");
-
       return { success: true };
     } catch (err) {
-      const message =
-        err.response?.data?.error?.message ||
-        err.response?.data?.message ||
-        "Incorrect email or password";
-
+      const message = err.response?.data?.error?.message || err.response?.data?.message || err.message || "Login failed";
       toast.error(message);
       return { success: false, error: message };
     }
   };
 
-  // REGISTER — FIXED (NO TOKEN EXPECTED)
+  // REGISTER: backend DOES NOT return tokens consistently on register.
+  // So we simply call register and return result; do not auto-login here.
   const register = async (userData) => {
     try {
       const res = await authAPI.register(userData);
-
-      if (res.data.success) {
-        toast.success(res.data.message || "Account created!");
+      // Expect backend returns { success: true, message: "..."}
+      if (res.data && (res.data.success || res.status === 201)) {
+        // If backend returns message, show it
+        if (res.data.message) toast.success(res.data.message);
+        else toast.success("Account created");
         return { success: true };
+      } else {
+        const msg = res.data?.message || "Registration failed";
+        return { success: false, error: msg };
       }
-
-      return { success: false, error: res.data.message };
     } catch (err) {
-      const message =
-        err.response?.data?.error?.message ||
-        err.response?.data?.message ||
-        "Registration failed";
-
+      const message = err.response?.data?.error?.message || err.response?.data?.message || err.message || "Registration failed";
       toast.error(message);
       return { success: false, error: message };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     try {
-      authAPI.logout().catch(() => {});
+      if (token) {
+        // best-effort - ignore network failures here
+        await authAPI.logout().catch(() => {});
+      }
     } finally {
-      setUser(null);
-      setToken(null);
-      setRefreshToken(null);
-      setIsAuthenticated(false);
-
-      localStorage.removeItem("token");
-      localStorage.removeItem("refreshToken");
-      sessionStorage.removeItem("token");
-      sessionStorage.removeItem("refreshToken");
-
-      authAPI.setAuthHeader(null);
+      clearAuth();
       toast.success("Logged out");
     }
   };
@@ -145,17 +159,13 @@ export const AuthProvider = ({ children }) => {
   const updateUser = async (data) => {
     try {
       const res = await authAPI.updateDetails(data);
-      setUser(res.data.user);
+      setUser(res.data.user || res.data.data?.user);
       toast.success("Profile updated");
       return { success: true };
     } catch (err) {
-      const msg =
-        err.response?.data?.error?.message ||
-        err.response?.data?.message ||
-        "Update failed";
-
-      toast.error(msg);
-      return { success: false, error: msg };
+      const message = err.response?.data?.error?.message || err.response?.data?.message || err.message || "Update failed";
+      toast.error(message);
+      return { success: false, error: message };
     }
   };
 
@@ -165,13 +175,9 @@ export const AuthProvider = ({ children }) => {
       toast.success("Password updated");
       return { success: true };
     } catch (err) {
-      const msg =
-        err.response?.data?.error?.message ||
-        err.response?.data?.message ||
-        "Password update failed";
-
-      toast.error(msg);
-      return { success: false, error: msg };
+      const message = err.response?.data?.error?.message || err.response?.data?.message || err.message || "Password update failed";
+      toast.error(message);
+      return { success: false, error: message };
     }
   };
 
@@ -188,6 +194,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         updateUser,
         updatePassword,
+        setUser, // optional: useful for client-side updates
       }}
     >
       {children}
