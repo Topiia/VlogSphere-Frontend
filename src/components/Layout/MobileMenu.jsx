@@ -121,18 +121,20 @@ const MobileMenu = ({ isOpen, onClose, navigation }) => {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-8">
-                      <Link to="/login" onClick={onClose}>
-                        <Button variant="outline" fullWidth>
-                          Login
-                        </Button>
-                      </Link>
-                      <Link to="/register" onClick={onClose}>
-                        <Button variant="primary" fullWidth>
-                          Sign Up
-                        </Button>
-                      </Link>
-                    </div>
+                  <div className="flex flex-col gap-4 w-full">
+                    <Link to="/login" onClick={onClose} className="block w-full">
+                      <Button variant="outline" fullWidth>
+                        Login
+                      </Button>
+                    </Link>
+                
+                    <Link to="/register" onClick={onClose} className="block w-full">
+                      <Button variant="primary" fullWidth>
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </div>
+
                   )}
                 </div>
               </nav>
